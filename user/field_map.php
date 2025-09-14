@@ -158,7 +158,11 @@ pointLayer.setStyle(new ol.style.Style({
 const map = new ol.Map({
     target: 'map',
     layers: [
-        new ol.layer.Tile({ source: new ol.source.OSM() }),
+        new ol.layer.Tile({ 
+            source: new ol.source.OSM({
+                attributions: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
+            })
+        }),
         gndLayer,
         pointLayer
     ],

@@ -39,8 +39,10 @@ try {
             b.is_occupied,
             b.meta_created_date,
             b.meta_original_source,
-            b.meta_updated_date,
+            b.meta_last_update,
             b.meta_update_source,
+            b.field_updated,
+            b.remarks,
             ST_AsGeoJSON(ST_Transform(b.geom, 3857)) AS geojson
         FROM buildings.building_master b
         JOIN public.gnd g
@@ -76,8 +78,10 @@ try {
                         "is_occupied"          => (bool)$row['is_occupied'],
                         "meta_created_date"    => $row['meta_created_date'],
                         "meta_original_source" => $row['meta_original_source'],
-                        "meta_updated_date"    => $row['meta_updated_date'],
-                        "meta_update_source"   => $row['meta_update_source']
+                        "meta_last_update"     => $row['meta_last_update'],
+                        "meta_update_source"   => $row['meta_update_source'],
+                        "field_updated"        => (bool)$row['field_updated'],
+                        "remarks"              => $row['remarks']
                     ]
                 ];
             }

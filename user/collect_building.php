@@ -82,7 +82,19 @@ $construction_types = fetch_enum_values($pdo, "buildings", "construction_type_en
 <div class="flex flex-col gap-4">
     <!-- Map -->
     <div class="bg-white rounded-lg shadow p-2">
-        <div id="map" class="w-full h-96"></div>
+        <div class="relative">
+            <div class="absolute top-4 right-4 z-20 flex flex-col gap-2 items-end">
+                <div class="bg-white shadow p-2 rounded flex items-center gap-2">
+                    <input type="checkbox" id="toggleWMS" class="form-checkbox h-4 w-4 text-green-600">
+                    <span class="text-gray-700">Show Updates (WMS)</span>
+                </div>
+                <button id="locateBtn" type="button" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center">
+                    <img src="../assets/img/location.svg" alt="Locate" class="inline w-5 h-5 mr-2" />
+                    Locate Me
+                </button>
+            </div>
+            <div id="map" class="w-full h-96"></div>
+        </div>
     </div>
 
     <!-- Form -->
@@ -116,10 +128,15 @@ let buildingLayer = new ol.layer.Vector({
 });
 
 // --- Map ---
+
 const map = new ol.Map({
     target: 'map',
     layers: [
-        new ol.layer.Tile({ source: new ol.source.OSM() }),
+        new ol.layer.Tile({ 
+            source: new ol.source.OSM({
+                attributions: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
+            })
+        }),
         gndLayer,
         buildingLayer
     ],
@@ -131,6 +148,56 @@ let gndExtent = gndSource.getExtent();
 if (gndExtent && !ol.extent.isEmpty(gndExtent)) {
     map.getView().fit(gndExtent, { padding: [20,20,20,20] });
 }
+
+// --- Geolocation: Zoom to current GPS location ---
+const geolocation = new ol.Geolocation({
+    tracking: false,
+    projection: map.getView().getProjection()
+});
+
+// Optional: show a marker at current location
+const positionFeature = new ol.Feature();
+positionFeature.setStyle(new ol.style.Style({
+    image: new ol.style.Circle({
+        radius: 7,
+        fill: new ol.style.Fill({ color: 'rgba(0, 153, 255, 0.7)' }),
+        stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+    })
+}));
+
+const geoSource = new ol.source.Vector({ features: [positionFeature] });
+const geoLayer = new ol.layer.Vector({ source: geoSource });
+map.addLayer(geoLayer);
+
+// Add a button to locate user (add to DOM if not present)
+if (!document.getElementById('locateBtn')) {
+    const btn = document.createElement('button');
+    btn.id = 'locateBtn';
+    btn.textContent = '📍 My Location';
+    btn.className = 'bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 absolute top-4 left-4 z-10';
+    document.body.appendChild(btn);
+}
+
+document.getElementById('locateBtn').addEventListener('click', () => {
+    geolocation.setTracking(true); // request GPS
+
+    geolocation.once('change:position', () => {
+        const coords = geolocation.getPosition();
+        if (coords) {
+            // Move marker
+            positionFeature.setGeometry(new ol.geom.Point(coords));
+
+            // Zoom map
+            map.getView().animate({ center: coords, zoom: 18, duration: 1000 });
+        }
+        geolocation.setTracking(false); // stop tracking after one update
+    });
+
+    geolocation.once('error', (err) => {
+        alert('Could not get location: ' + err.message);
+        geolocation.setTracking(false);
+    });
+});
 
 // --- Load building features ---
 fetch(`load_building_features.php?gnd_id=<?= $gnd['gid'] ?>`)
@@ -146,11 +213,26 @@ fetch(`load_building_features.php?gnd_id=<?= $gnd['gid'] ?>`)
 
 // --- Click handler to load building attributes ---
 map.on('singleclick', function(evt) {
+    let selectedFeature = null;
     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
         if (layer !== buildingLayer) return;
-
+        selectedFeature = feature;
         const buildingId = feature.get('building_id');
         if (!buildingId) return;
+
+        // Highlight selected feature
+        buildingLayer.setStyle(function(feat) {
+            if (feat === selectedFeature) {
+                return new ol.style.Style({
+                    stroke: new ol.style.Stroke({ color: 'rgba(255,0,0,0.9)', width: 3 }),
+                    fill: new ol.style.Fill({ color: 'rgba(255,200,200,0.4)' })
+                });
+            }
+            return new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: 'rgba(0,0,200,0.6)', width: 1 }),
+                fill: new ol.style.Fill({ color: 'rgba(0,0,200,0.1)' })
+            });
+        });
 
         const formContainer = document.getElementById('formContainer');
         formContainer.innerHTML = '<span class="text-gray-500 font-semibold">Loading...</span>';
@@ -182,7 +264,13 @@ map.on('singleclick', function(evt) {
             ${<?= json_encode($roof_types) ?>.map(v=>`<option value="${v}" ${b.roof_type===v?'selected':''}>${v}</option>`).join('')}
         </select></div>
     <div class="flex flex-col"><label class="font-semibold">Electricity Sources</label>
-        <input type="text" id="electricity_sources" value="${(b.electricity_sources && Array.isArray(b.electricity_sources) ? b.electricity_sources : []).join(', ')}" class="border rounded px-3 py-2"></div>
+        <div id="electricity_sources_group" class="flex flex-wrap gap-2">
+            <label><input type="checkbox" value="Grid"> Grid</label>
+            <label><input type="checkbox" value="Solar"> Solar</label>
+            <label><input type="checkbox" value="Generator"> Generator</label>
+            <label><input type="checkbox" value="None"> None</label>
+        </div>
+    </div>
     <div class="flex flex-col"><label class="font-semibold">Water Supply</label>
         <input type="text" id="water_supply" value="${b.water_supply||''}" class="border rounded px-3 py-2"></div>
     <div class="flex flex-col"><label class="font-semibold">Liquid Waste Disposal</label>
@@ -217,6 +305,8 @@ map.on('singleclick', function(evt) {
                     return;
                 }
                 // Collect main attributes
+                // Collect checked electricity sources
+                const checkedSources = Array.from(document.querySelectorAll('#electricity_sources_group input[type="checkbox"]:checked')).map(cb => cb.value);
                 const payload = {
                     building_id: b.building_id,
                     building_code: b.building_code,
@@ -224,7 +314,7 @@ map.on('singleclick', function(evt) {
                     no_of_floors: document.getElementById('no_of_floors').value,
                     building_material: document.getElementById('building_material').value,
                     roof_type: document.getElementById('roof_type').value,
-                    electricity_sources: document.getElementById('electricity_sources').value,
+                    electricity_sources: checkedSources.join(','),
                     water_supply: document.getElementById('water_supply').value,
                     liquidwaste_disposal: document.getElementById('liquidwaste_disposal').value,
                     solidwaste_disposal: document.getElementById('solidwaste_disposal').value,

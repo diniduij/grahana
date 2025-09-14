@@ -21,7 +21,7 @@ try {
     // ------------------------
     $deed_image = null;
     if (isset($_FILES['deed_image']) && $_FILES['deed_image']['error'] === 0) {
-        $targetDir = "../../uploads/deed_images/";
+        $targetDir = "../../uploads/deeds/";
         if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
         $filename = uniqid() . "_" . basename($_FILES['deed_image']['name']);
         $targetFile = $targetDir . $filename;

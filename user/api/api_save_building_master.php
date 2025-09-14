@@ -15,6 +15,11 @@ $no_of_floors     = $_POST['no_of_floors'] ?? null;
 $building_material= $_POST['building_material'] ?? null;
 $roof_type        = $_POST['roof_type'] ?? null;
 $electricity_sources = $_POST['electricity_sources'] ?? null;
+// Convert comma-separated string to PostgreSQL array format
+if ($electricity_sources !== null) {
+    $sourcesArr = array_filter(array_map('trim', explode(',', $electricity_sources)));
+    $electricity_sources = '{' . implode(',', array_map(fn($v) => '"' . str_replace('"', '', $v) . '"', $sourcesArr)) . '}';
+}
 $water_supply     = $_POST['water_supply'] ?? null;
 $liquidwaste_disposal = $_POST['liquidwaste_disposal'] ?? null;
 $solidwaste_disposal  = $_POST['solidwaste_disposal'] ?? null;

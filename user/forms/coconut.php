@@ -289,7 +289,7 @@ if(landuseGeoJSON){
 
 const map = new ol.Map({
     target:'map',
-    layers:[new ol.layer.Tile({source:new ol.source.OSM()}), gndLayer, ...(landuseLayer?[landuseLayer]:[])],
+    layers:[new ol.layer.Tile({source:new ol.source.OSM({attributions: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'})}), gndLayer, ...(landuseLayer?[landuseLayer]:[])],
     view:new ol.View({center: ol.extent.getCenter(gndSource.getExtent()), zoom:13})
 });
 

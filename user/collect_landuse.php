@@ -68,21 +68,19 @@ if (!$geom_json) die("GND geometry not available.");
 <div class="flex flex-col gap-4">
     <!-- Map -->
     <div class="bg-white rounded-lg shadow p-2">
-        <!-- Map Layer Control-->
-        <div class="bg-white shadow p-2 rounded mt-2">
-        <label class="flex items-center space-x-2">
-            <input type="checkbox" id="toggleWMS" class="form-checkbox h-4 w-4 text-green-600">
-            <span class="text-gray-700">Show Updates (WMS)</span>
-        
-        <button id="locateBtn" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">
-            📍 My Location
-        </button>
-        </label>
+        <div class="relative">
+            <div class="absolute top-4 right-4 z-20 flex flex-col gap-2 items-end">
+                <div class="bg-white shadow p-2 rounded flex items-center gap-2">
+                    <input type="checkbox" id="toggleWMS" class="form-checkbox h-4 w-4 text-green-600">
+                    <span class="text-gray-700">Show Updates (WMS)</span>
+                </div>
+                <button id="locateBtn" type="button" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center">
+                    <img src="../assets/img/location.svg" alt="Locate" class="inline w-5 h-5 mr-2" />
+                    Locate Me
+                </button>
+            </div>
+            <div id="map" class="w-full h-96"></div>
         </div>
-        <!-- Zoom to current location -->
-        
-
-        <div id="map" class="w-full h-96"></div>
     </div>
 
     <!-- Form / Info -->
@@ -149,7 +147,7 @@ landuseLayer.setStyle(new ol.style.Style({
 // --- Map ---
 const map = new ol.Map({
     target: 'map',
-    layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }), gndLayer, landuseLayer ],
+    layers: [ new ol.layer.Tile({ source: new ol.source.OSM({ attributions: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors' }) }), gndLayer, landuseLayer ],
     view: new ol.View({ center: ol.extent.getCenter(gndSource.getExtent()), zoom: 13 })
 });
 map.getView().fit(gndSource.getExtent(), { padding: [20,20,20,20] });
@@ -309,11 +307,26 @@ async function populateDropdowns(landuseId) {
 
 // --- Click Handler ---
 map.on('singleclick', async function(evt) {
+    let selectedFeature = null;
     map.forEachFeatureAtPixel(evt.pixel, async function(feature, layer) {
         if (layer !== landuseLayer) return;
-
+        selectedFeature = feature;
         const landuseId = feature.get('landuse_id');
         if (!landuseId) return;
+
+        // Highlight selected feature
+        landuseLayer.setStyle(function(feat) {
+            if (feat === selectedFeature) {
+                return new ol.style.Style({
+                    stroke: new ol.style.Stroke({ color: 'rgba(255,0,0,0.9)', width: 3 }),
+                    fill: new ol.style.Fill({ color: 'rgba(255,200,200,0.4)' })
+                });
+            }
+            return new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: 'rgba(15,92,0,0.6)', width: 1 }),
+                fill: new ol.style.Fill({ color: 'rgba(8,107,38,0.1)' })
+            });
+        });
 
         const formContainer = document.getElementById('formContainer');
         formContainer.innerHTML = '<span class="text-gray-500 font-semibold">Loading...</span>';
